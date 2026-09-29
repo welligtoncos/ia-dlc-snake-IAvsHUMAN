@@ -48,7 +48,7 @@ Patterns for `core/` only. No cloud, pygame, or ML.
 ## Performance (not a gate)
 
 - No `sleep`, no clock, no I/O in `step` / `new_match` / queries.
-- Flood fill stops at 200 cells.
+- `flood_fill_count` returns exactly `min(reachable cells, limit)`, independent of visit order (D39).
 - Bench records mean `step` time and random-helper games/min to support later RNF03 (U3).
 
 ## Resilience / scale / security

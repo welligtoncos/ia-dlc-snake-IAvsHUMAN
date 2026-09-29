@@ -104,4 +104,5 @@ def flood_fill_count(
     occupancy: frozenset[Cell] | None = None,
     limit: int = 200,
 ) -> int:
+    """Exactly min(reachable component size, limit). Order-independent (D39)."""
     return len(reachable_cells(state, start, occupancy=occupancy, limit=limit))
