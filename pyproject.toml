@@ -30,7 +30,6 @@ pythonpath = ["src"]
 [tool.coverage.run]
 branch = true
 source = ["snake_vs_machine.core"]
-omit = ["*/features.py"]
 
 [tool.coverage.report]
 fail_under = 80

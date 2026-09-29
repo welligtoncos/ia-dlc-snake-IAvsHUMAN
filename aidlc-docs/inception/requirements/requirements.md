@@ -64,6 +64,14 @@
 | D33 | `next_occupancy` real vs D29; `step` passa ação do oponente; P-OCC-CONSERV; teste cauda | Functional Design U1 |
 | D34 | numpy pin NEP 19; Hypothesis dev/full; frozen types; cov-branch 80%; bench informativo; mypy opcional | NFR Requirements U1 |
 | D35 | `snake_a`/`snake_b` + `side_a`/`side_b`; sem dict/list/set internos; `hash(state)` + FrozenInstanceError | NFR Design U1 |
+| D36 | TDD antes do engine; PBT via `new_match`+`step`; replay; `fail_under=80` | Code Generation U1 |
+| D37 | Python ≥ 3.13; ruff `py313`; mypy 3.13 | Code Generation U1 |
+| D38 | Features: geometria PBT no tabuleiro; consistência danger/dist/space; `FEATURE_SCHEMA_VERSION`; ValueError se morto/terminal | Functional Design U2 |
+| D39 | `flood_fill_count` isométrico; golden vector kickoff A; justiça A==B; worked example 1 substituído | Functional Design U2 |
+| D40 | U5 < 1 ms inclui features+proba+máscara; U2 ≤ 0,5 ms informativo com ALERTA; flood compartilhado só se alerta | NFR Requirements U2 |
+| D41 | CG U2: testes dos helpers de transform; commit U1 D39 antes da Etapa 1 | Code Generation U2 |
+| D42 | `free_cells` aritmético uma vez por chamada; PBT de oráculo; bench 4,11 → 2,12 ms (ainda ALERTA) | Revisão de código U2 |
+| D43 | BFS por índices inteiros; `danger` por `_blocked` + PBT contra `is_fatal`; bench 2,12 → 0,415 ms (OK); passo 3 dispensado | Revisão de código U2 |
 
 Registro completo: `aidlc-docs/decisions.md`.
 
@@ -197,7 +205,7 @@ Obstáculos entram em perigo/features, flood fill de `space_free_*`, A* do espec
 | IA competitiva | Aceite D12 Difícil vs. Médio | BC-8 (máscara on) ≥ Médio (BC-6, máscara off) **+ 10 pontos percentuais** na taxa 1/0,5/0 vs. especialista, mesma bateria de 500 |
 | Fidelidade | Acurácia vs. especialista no **teste congelado** | ≥ 95% para **BC-6 e BC-8**; **BC-3 sem meta de acurácia** |
 | Explicável | Profundidade dos modelos entregues | 3, 6 e 8 (máximo 8) |
-| Desempenho | Inferência | < 1 ms/jogada |
+| Desempenho | Inferência | < 1 ms/jogada **incluindo** `extract_features` + `predict_proba` + `safety_mask` (D40) |
 | Desempenho | UI | 60 FPS estáveis |
 | Robustez | Queda com 10% ruído nas features | ≤ 15 pp |
 | Qualidade | Cobertura `core/` | ≥ 80% |
@@ -210,7 +218,7 @@ Obstáculos entram em perigo/features, flood fill de `space_free_*`, A* do espec
 | ID | Requirement |
 | --- | --- |
 | RNF01 | Python 3.11+; Windows, Linux, macOS |
-| RNF02 | Inferência < 1 ms; Pygame 60 FPS; `tick_rate` padrão 10 **só na exibição**; simulação headless pode avançar ticks sem esperar o relógio |
+| RNF02 | Inferência < 1 ms/jogada **com máscara** = `extract_features` + `predict_proba` + `safety_mask` (D40); Pygame 60 FPS; `tick_rate` padrão 10 **só na exibição**; simulação headless pode avançar ticks sem esperar o relógio |
 | RNF03 | Headless: ≥ 1000 partidas/min em **random vs. random**. Com o **especialista**, medir e registrar o throughput (sem piso). Multiprocessing permitido nos dois casos |
 | RNF04 | Toda partida e treino aceitam `seed` e registram a seed |
 | RNF05 | Type hints; `ruff`; `pytest`; PBT com `hypothesis` no recorte parcial |
@@ -283,7 +291,7 @@ PBT-01, PBT-04, PBT-05, PBT-06: consultivos neste projeto (modo parcial).
 | U2 Features | `core/features.py` | U1 | Usa `flood_fill_count` / `reachable_cells`; `space_free_*`; PBT rotação/espelhamento |
 | U3 Agentes | random, expert, human, **MatchService** | U1, U2 | Expert ≥ 95% vs random / 500; HumanAgent buffer 2; `tick` sem relógio; RNF03 ≥ 1000 partidas/min random vs. random; throughput vs. especialista registrado (D30) |
 | U4 UI | Pygame, HUD, menu, espectador | U1, U3 | Consome MatchService; ritmo via `tick_rate`; 60 FPS |
-| U5 BC | tree + coleta/treino/DAgger, BC-3/6/8 | U2, U3 | sklearn pinado; teste congelado; BC-6 **e BC-8** ≥ 90% vs random; acurácia ≥ 95% só 6 e 8; inferência < 1 ms **com máscara**; `TreeAgent` devolve ação + ExplanationPayload; alerta D12 100 |
+| U5 BC | tree + coleta/treino/DAgger, BC-3/6/8 | U2, U3 | sklearn pinado; teste congelado; BC-6 **e BC-8** ≥ 90% vs random; acurácia ≥ 95% só 6 e 8; inferência < 1 ms **com máscara** = `extract_features` + `predict_proba` + `safety_mask` (D40); `TreeAgent` devolve ação + ExplanationPayload; alerta D12 100 |
 | U6 VIPER | — | — | **Deferred** |
 | U7 Explicação e estresse | dicionário PT + render do payload U5; torneio; estresse | U4, U5 | Só traduz/renderiza (D30); D12 +10 pp em 500; BC-8 máscara ≥ 40% vs especialista; ruído 10% ≤ 15 pp; tabela Metrics toda aprovado/reprovado |
 

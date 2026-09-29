@@ -103,9 +103,10 @@ Decisões da Inception. Fonte: perguntas de requisitos, esclarecimento RF03 e re
 ## D19 — PBT geométrico de features
 **Decisão**: Além das invariantes já listadas, `extract_features` deve ser testado por PBT para:
 - **Rotação** 90/180/270°: mesmo vetor de features (estado egocêntrico).
-- **Espelhamento** no eixo à frente da cabeça: features esquerda ↔ direita trocadas; frente/trás e não-laterais preservados.
+- **Espelhamento**: features esquerda ↔ direita trocadas; frente/trás e não-laterais preservados.
+**Correção (D38)**: rotação e espelhamento são do **tabuleiro inteiro** em torno do centro / eixos centrais — não em torno da cabeça. Ver D38.
 **Origem**: revisão item 8  
-**Status**: Aprovada (revisão)
+**Status**: Aprovada (revisão); geometria corrigida por D38
 
 ## D20 — Prioridade RF07
 **Decisão**: Modo espectador (RF07) passa de Could para **Should**.  
@@ -186,7 +187,7 @@ Decisões da Inception. Fonte: perguntas de requisitos, esclarecimento RF03 e re
 **Decisão**:
 1. **U1**: cobertura `core/` ≥ 80%; PBT `is_fatal` (False ⇒ tick não mata por causa determinística); PBT `setup` (simetria 180°, todas as livres conectadas, zonas livres, determinismo por seed).
 2. **U3**: RNF03 ≥ 1000 partidas/min random vs. random; registrar throughput vs. especialista.
-3. **U5**: BC-8 ≥ 90% vs. aleatório; inferência < 1 ms/jogada **com** `safety_mask`. `TreeAgent` devolve ação **e** dados de explicação (`decision_path`, ação proposta, ação executada, flag de veto). **U7 só traduz e renderiza**.
+3. **U5**: BC-8 ≥ 90% vs. aleatório; inferência < 1 ms/jogada **com** `safety_mask` (esclarecido em **D40**: inclui `extract_features` + `predict_proba` + `safety_mask`). `TreeAgent` devolve ação **e** dados de explicação (`decision_path`, ação proposta, ação executada, flag de veto). **U7 só traduz e renderiza**.
 4. **U7**: BC-8 com máscara ≥ 40% vs. especialista; queda ≤ 15 pp com 10% de ruído; relatório com **todas** as metas da tabela Metrics (aprovado/reprovado).
 5. **DoD** de toda unit: `ruff` limpo, `pytest` verde, type hints nas funções públicas, `decisions.md` atualizado, **commit + tag git `uN-done`**.
 6. Diagrama: seta **U5 → U4 tracejada** (ordem de risco, não dependência de compilação).
@@ -258,4 +259,59 @@ Decisões da Inception. Fonte: perguntas de requisitos, esclarecimento RF03 e re
 ## D37 — Python mínimo 3.13
 **Decisão**: `requires-python = ">=3.13"`; Ruff `target-version = "py313"`; mypy `python_version = "3.13"`. A suíte U1 (incluindo `HYPOTHESIS_PROFILE=full` pelo revisor) rodou neste runtime 3.13; não se mantém a promessa de 3.11.
 **Origem**: aprovação Code Generation U1 (opção b)  
+**Status**: Aprovada
+
+## D38 — Features U2 (geometria PBT, consistência, schema, ValueError)
+**Decisão**:
+1. **Geometria (corrige D19)**: rotação 90/180/270° em torno do **centro do tabuleiro** (tabuleiro quadrado). Espelhamento do **tabuleiro inteiro** no eixo central: `x → W−1−x` **ou** `y → H−1−y`. Ambas as transformações aplicam-se a corpos, direções, comida e obstáculos — não em torno da cabeça.
+2. **Consistência PBT**: para `d ∈ {ahead, left, right}`: `danger_d = 1 ⇔ dist_danger_d = 0`; `danger_d = 1 ⇒ space_free_d = 0`.
+3. `FEATURE_SCHEMA_VERSION: int` em `core.features` junto de `feature_names()`. U5 grava a versão no JSON de cada modelo; `TreeAgent` recusa modelo com versão diferente (erro 4).
+4. `extract_features` lança `ValueError` se a cobra estiver morta **ou** a partida for terminal. Geradores PBT filtram esses estados.
+5. Respostas FD U2: Q1=A (`danger_*` = `is_fatal`); Q2=X (raio a partir da célula de destino; bloqueio = mesmo conjunto de `is_fatal` / `next_occupancy` conservador daquela ação; divisor `max(width, height)`); Q3=A; Q4=A; Q5=B (semiplanos inclusivos; `food is None` ou comida na cabeça → quatro bits 0); Q6=A; Q7=B (landing ∈ 3 next heads do oponente); Q8=A (`tuple` de 20 + `feature_names` + versão); Q9=B.
+**Origem**: Functional Design U2  
+**Status**: Aprovada (respostas + registro explícito)
+
+## D39 — Features U2 (flood count, golden vector, justiça)
+**Decisão**:
+1. `flood_fill_count` devolve **exatamente** `min(células alcançáveis, limit)`, independente da ordem de visita. Features usam **só** a contagem. `reachable_cells` com `limit` depende da ordem da BFS e **não** alimenta features. Teste na U1: em estados gerados, a contagem é igual após rotação/espelhamento do tabuleiro.
+2. Teste **golden vector** obrigatório: `new_match(CoreConfig(), seed=0)` (0 obstáculos), cobra A, vetor  
+   `(0, 0, 0, 0.85, 0.10, 0.85, 1.0, 1.0, 1.0, 1, 0, 1, 0, 15/38, 0, 30/38, 0, 0, 0, 0)`  
+   com `pytest.approx` nos floats.
+3. Teste de justiça: no mesmo kickoff, `extract_features(state, A) == extract_features(state, B)`.
+4. O exemplo 1 da lista de worked examples do FD U2 é **substituído** pelos itens 2 e 3.
+**Origem**: aprovação Functional Design U2  
+**Status**: Aprovada
+
+## D40 — Orçamento de inferência (U2 + U5)
+**Decisão**:
+1. O aceite U5 **inferência < 1 ms/jogada com máscara** mede o caminho completo: `extract_features` + `predict_proba` + `safety_mask`.
+2. Orçamento U2: `extract_features` ≤ **0,5 ms** por chamada no pior caso (kickoff, 0 obstáculos, três flood fills no limite 200). **Informativo**: gravar em `benchmark.md`; se exceder, marcar **ALERTA** — **não** falha o pytest.
+3. Se houver alerta, anotar otimização futura (não implementar na U2): quando os três destinos compartilham a mesma região com ≥ 200 células, um único `flood_fill_count` serve as três direções.
+**Origem**: aprovação NFR Requirements U2  
+**Status**: Aprovada
+
+## D41 — Code Generation Plan U2 (helpers + commit D39)
+**Decisão**:
+1. Antes das propriedades PBT, testar helpers de transformação: `rot90` quatro vezes = identidade; cada espelho duas vezes = identidade; `rot180` do kickoff leva o corpo de A ao spawn de B e vice-versa.
+2. Antes da Etapa 1 da U2, commit separado das mudanças U1 da D39 (`flood_fill_count` + isometria).
+**Origem**: aprovação Code Generation Plan U2  
+**Status**: Aprovada
+
+## D42 — `free_cells` aritmético em `extract_features`
+**Nota de numeração**: pedida como "D41" na revisão do código da U2, mas D41 já estava ocupada pelo plano de CG da U2. Registrada como **D42**.
+**Decisão**:
+1. `free_cells` é calculado **uma vez** por chamada de `extract_features`, fora do laço das ações, por `width*height - len(obstacles) - len(me.body) - len(opp.body)` (válido por P-ENG-NOOVERLAP e porque cobra viva nunca ocupa obstáculo). `_space` recebe `free_cells` como parâmetro.
+2. Nova propriedade PBT: a fórmula é igual à contagem célula a célula (oráculo só no teste).
+3. `danger` continua sendo `is_fatal`. Registrar o bench do pior caso antes e depois do item 1.
+**Medição**: pior caso kickoff — **4,11 ms antes**, **2,12 ms depois**. Continua **ALERTA** frente ao orçamento de 0,5 ms (D40).
+**Origem**: revisão do código U2  
+**Status**: Aprovada
+
+## D43 — Otimizar `extract_features` até ≤ 0,5 ms em passos medidos
+**Decisão**: otimizar em passos, medindo depois de cada um e parando ao atingir a meta.
+1. `reachable_cells` (U1): BFS interno com índices inteiros (`y*width + x`) e grade de bloqueio pré-calculada (lista de bool), sem criar `Cell` por vizinho nem chamar `in_bounds` por célula. Assinatura e retorno públicos inalterados; isometria da D39 preservada.
+2. `features`: `danger` derivado de `_blocked(state, landing, occ)`, sem `is_fatal` no laço. Nova propriedade PBT: para toda ação, esse `danger == is_fatal(state, id, action)`.
+3. Só se ainda > 0,5 ms: flood compartilhado da D40.
+**Resultado**: passo 1 → 0,543 ms (ALERTA); passo 2 → **0,415 ms (OK)**. Passo 3 **não implementado** — meta atingida. Cumulativo 4,11 ms → 0,415 ms.
+**Origem**: revisão do código U2 (Solicitar Alterações)  
 **Status**: Aprovada

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
-
 import pytest
 
 from snake_vs_machine.core.engine import step
@@ -14,36 +12,9 @@ from snake_vs_machine.core.queries import (
     reachable_cells,
 )
 from snake_vs_machine.core.setup import new_match
-from snake_vs_machine.core.state import Action, Cell, CoreConfig, Direction, Snake, SnakeId, State
+from snake_vs_machine.core.state import Action, Cell, CoreConfig, Direction, SnakeId
+from tests.core.board_transforms import map_cell, transform_state
 from tests.core.test_engine_critical import _place
-
-
-def _map_cell(cell: Cell, kind: str, width: int, height: int) -> Cell:
-    if kind == "rot90":
-        return Cell(width - 1 - cell.y, cell.x)
-    if kind == "rot180":
-        return Cell(width - 1 - cell.x, height - 1 - cell.y)
-    if kind == "rot270":
-        return Cell(cell.y, height - 1 - cell.x)
-    if kind == "mx":
-        return Cell(width - 1 - cell.x, cell.y)
-    return Cell(cell.x, height - 1 - cell.y)
-
-
-def _map_snake(snake: Snake, kind: str, width: int, height: int) -> Snake:
-    return replace(snake, body=tuple(_map_cell(c, kind, width, height) for c in snake.body))
-
-
-def _transform_state(state: State, kind: str) -> State:
-    w, h = state.width, state.height
-    food = None if state.food is None else _map_cell(state.food, kind, w, h)
-    return replace(
-        state,
-        snake_a=_map_snake(state.snake_a, kind, w, h),
-        snake_b=_map_snake(state.snake_b, kind, w, h),
-        food=food,
-        obstacles=frozenset(_map_cell(c, kind, w, h) for c in state.obstacles),
-    )
 
 
 def test_d29_conservative_tail_solid_when_opponent_adj_food() -> None:
@@ -126,6 +97,22 @@ def test_flood_fill_obstacle_start() -> None:
     assert flood_fill_count(state, cell) == 0
 
 
+def test_flood_fill_out_of_bounds_start_is_empty() -> None:
+    state = new_match(CoreConfig(), seed=0)
+    assert reachable_cells(state, Cell(-1, 0)) == frozenset()
+    assert flood_fill_count(state, Cell(state.width, 0)) == 0
+
+
+@pytest.mark.parametrize("limit", [0, -1])
+def test_flood_fill_rejects_limit_below_one(limit: int) -> None:
+    state = new_match(CoreConfig(), seed=0)
+    assert state.food is not None
+    with pytest.raises(ValueError):
+        reachable_cells(state, state.food, limit=limit)
+    with pytest.raises(ValueError):
+        flood_fill_count(state, state.food, limit=limit)
+
+
 @pytest.mark.parametrize("kind", ["rot90", "rot180", "rot270", "mx", "my"])
 @pytest.mark.parametrize("limit", [50, 200])
 def test_flood_fill_count_isometry_after_board_transform(kind: str, limit: int) -> None:
@@ -136,10 +123,10 @@ def test_flood_fill_count_isometry_after_board_transform(kind: str, limit: int) 
     before = flood_fill_count(state, start, limit=limit)
     full = flood_fill_count(state, start, limit=state.width * state.height)
     assert before == min(full, limit)
-    transformed = _transform_state(state, kind)
+    transformed = transform_state(state, kind)
     after = flood_fill_count(
         transformed,
-        _map_cell(start, kind, state.width, state.height),
+        map_cell(start, kind, state.width, state.height),
         limit=limit,
     )
     assert after == before

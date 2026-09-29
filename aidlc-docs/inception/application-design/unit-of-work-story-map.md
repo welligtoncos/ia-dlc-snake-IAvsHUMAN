@@ -22,7 +22,7 @@ Histórias de usuário puladas. Mapa: requisito / decisão → unit. Tudo in-sco
 | RNF02 | 60 FPS, tick_rate visual | U4 |
 | RNF03 | ≥ 1000/min random vs. random; throughput vs. especialista registrado | U3 (D30); U5/U7 reportam |
 | D30 U1 | cobertura `core/` ≥ 80%; PBT `is_fatal`; PBT `setup` | U1 |
-| D30 U5 | BC-8 ≥ 90% vs random; inferência < 1 ms com máscara; ExplanationPayload | U5 |
+| D30 U5 | BC-8 ≥ 90% vs random; inferência < 1 ms com máscara = features+proba+mask (D40); ExplanationPayload | U5 |
 | D30 U7 | BC-8 máscara ≥ 40% vs expert; ruído ≤ 15 pp; Metrics pass/fail | U7 |
 | D30 DoD | ruff, pytest, hints, decisions.md, tag `uN-done` | Todas |
 | RF08 | — | **Won't** (D03) |

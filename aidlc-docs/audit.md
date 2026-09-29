@@ -399,3 +399,170 @@ Rodei a suíte com HYPOTHESIS_PROFILE=full e as sabotagens de verificação. Pod
 **Context**: CONSTRUCTION - U1 DoD commit and tag.
 
 ---
+
+## U2 Functional Design — Started
+**Timestamp**: 2026-09-29T00:29:00Z
+**User Input**: "prossiga."
+**AI Response**: "Started U2 Functional Design. Wrote u2-features-functional-design-plan.md with 9 questions. Did not generate FD artifacts. Awaiting answers."
+**Context**: CONSTRUCTION - U2 Functional Design. Gate: fill [Answer] tags.
+
+---
+
+## U2 Functional Design — Answers + D38
+**Timestamp**: 2026-09-29T00:35:00Z
+**User Input**: "Respostas preenchidas (Q1=A, Q2=X, Q3=A, Q4=A, Q5=B, Q6=A, Q7=B, Q8=A, Q9=B). Registrar como D38:
+
+1. Corrige a D19: o espelhamento é do TABULEIRO INTEIRO em torno do eixo central (x → W−1−x ou y → H−1−y), não em torno da cabeça. A rotação é em torno do centro do tabuleiro (tabuleiro quadrado). Ambas transformam corpos, direções, comida e obstáculos.
+2. Propriedades de consistência entre features (PBT):
+   - danger_d = 1 ⇔ dist_danger_d = 0, para d ∈ {ahead, left, right}.
+   - danger_d = 1 ⇒ space_free_d = 0.
+3. FEATURE_SCHEMA_VERSION (int) em core.features, junto com feature_names(). A U5 grava a versão no JSON de cada modelo; o TreeAgent recusa carregar um modelo com versão diferente (cai no erro 4).
+4. extract_features lança ValueError para cobra morta ou partida terminal. Os geradores PBT devem filtrar esses estados."
+**AI Response**: "Registered D38. Wrote U2 FD artifacts. Awaiting explicit approval. Did not start NFR Requirements."
+**Context**: CONSTRUCTION - U2 Functional Design. Gate: approve or request changes.
+
+---
+
+## U2 Functional Design — Completion presented
+**Timestamp**: 2026-09-29T00:39:00Z
+**User Input**: "continue"
+**AI Response**: "Presented U2 Functional Design completion (2-option gate). Did not start NFR Requirements."
+**Context**: CONSTRUCTION - U2 Functional Design. Gate: explicit approval.
+
+---
+
+## U2 Functional Design — Approved (D39); NFR Requirements
+**Timestamp**: 2026-09-29T00:42:00Z
+**User Input**: "Functional Design da U2 aprovado com ajustes (registrar como D39):
+
+1. flood_fill_count deve devolver EXATAMENTE min(células alcançáveis, limit), independentemente da ordem de visita. Adicionar teste na U1: para estados gerados, a contagem é igual após rotação/espelhamento do tabuleiro. Features usam apenas a contagem; reachable_cells com limite depende da ordem da busca e não deve alimentar features.
+2. Teste \"golden vector\" obrigatório no kickoff (new_match, seed 0, sem obstáculos), vetor completo da cobra A:
+   (0, 0, 0, 0.85, 0.10, 0.85, 1.0, 1.0, 1.0, 1, 0, 1, 0, 15/38, 0, 30/38, 0, 0, 0, 0)
+   Comparar floats com pytest.approx.
+3. Teste de justiça: no kickoff, extract_features(state, A) == extract_features(state, B).
+4. Exemplo 1 da lista de worked examples é substituído pelos itens 2 e 3.
+
+Seguir para U2 NFR Requirements."
+**AI Response**: "Registered D39. Updated U2 FD and CG seed. Wrote U2 NFR Requirements artifacts. Awaiting NFR approval. Did not start NFR Design."
+**Context**: CONSTRUCTION - U2 NFR Requirements. Gate: approve or request changes.
+
+---
+
+## U2 NFR Requirements — Approved (D40); NFR Design
+**Timestamp**: 2026-09-29T00:47:00Z
+**User Input**: "NFR Requirements da U2 aprovados com um esclarecimento (registrar como D40):
+
+1. A meta \"inferência < 1 ms/jogada com máscara\" da U5 INCLUI extract_features + predict_proba + safety_mask. Atualizar o texto do aceite da U5 para deixar isso explícito.
+2. Orçamento da U2: extract_features ≤ 0,5 ms por chamada, medido no pior caso (kickoff, sem obstáculos, três flood fills no limite de 200). Informativo: registrar no benchmark.md e marcar ALERTA se exceder, sem reprovar o pytest.
+3. Se houver alerta, registrar como possível otimização (não implementar agora): quando os destinos compartilham a mesma região com ≥ 200 células, um único flood fill atende as três direções.
+
+Seguir para U2 NFR Design."
+**AI Response**: "Registered D40. Updated U5 acceptance texts. Wrote U2 NFR Design artifacts. Awaiting NFR Design approval. Did not start Code Generation."
+**Context**: CONSTRUCTION - U2 NFR Design. Gate: approve or request changes.
+
+---
+
+## U1 NFR Design — D39 flood_fill_count wording + isometry test
+**Timestamp**: 2026-09-29T00:54:00Z
+**User Input**: "Atualizar o nfr-design-patterns.md da U1 (seção Performance): substituir \"Flood fill stops at 200 cells\" por \"flood_fill_count retorna exatamente min(células alcançáveis, limit), independente da ordem de visita (D39)\". Conferir se o código da U1 já cumpre isso e se o teste de isometria da contagem existe."
+**AI Response**: "Updated U1 nfr-design-patterns.md. flood_fill_count already equals min(component, limit) via len(reachable_cells). Isometry test was missing; added test_flood_fill_count_isometry_after_board_transform."
+**Context**: CONSTRUCTION - U1 doc/test alignment with D39. U2 NFR Design still awaiting approval.
+
+---
+
+## U2 NFR Design — Approved on proceed; CG plan
+**Timestamp**: 2026-09-29T01:01:00Z
+**User Input**: "prossiga"
+**AI Response**: "Treated U2 NFR Design as approved. Expanded u2-features-code-generation-plan.md (10 steps, TDD-first). Did not generate features.py. Awaiting explicit plan approval."
+**Context**: CONSTRUCTION - U2 Code Generation Part 1. Gate: approve plan before Part 2.
+
+---
+
+## U2 Code Generation — Plan approval prompt
+**Timestamp**: 2026-09-29T01:01:00Z
+**User Input**: "(prompt issued — waiting for approve or request changes on U2 code-generation plan)"
+**AI Response**: "Presented U2 code-generation plan. No features.py written yet."
+**Context**: CONSTRUCTION - U2 Code Generation Part 1. Gate: explicit plan approval.
+
+---
+
+## U2 Code Generation — Plan approved (D41); Etapa 0–1
+**Timestamp**: 2026-09-29T01:04:00Z
+**User Input**: "Code Generation Plan da U2 aprovado com acréscimos:
+
+1. Etapa 5: antes das propriedades, testar os helpers de transformação — rot90 aplicado 4 vezes = identidade; mirror aplicado 2 vezes = identidade; rot180 do kickoff leva o corpo de A ao spawn de B e vice-versa.
+2. Antes da Etapa 1: commit separado das mudanças da U1 feitas pela D39 (flood_fill_count exato + testes de isometria), com mensagem referenciando a D39.
+
+Pode começar pela Etapa 1."
+**AI Response**: "Registered D41. Commit 5720b8d (D39). Wrote test_features.py TDD; features.py not implemented."
+**Context**: CONSTRUCTION - U2 Code Generation Part 2. Etapa 1 TDD red.
+
+---
+
+## U2 Code Generation — Continue (Etapas 2–10)
+**Timestamp**: 2026-09-29T01:15:00Z
+**User Input**: "continue"
+**AI Response**: "Implemented features.py, PBT, dropped omit, 74 passed / 96.76% coverage. Bench 4.11 ms ALERTA. Awaiting code approval. Did not commit or tag u2-done."
+**Context**: CONSTRUCTION - U2 Code Generation Part 2. Gate: approve code or request changes.
+
+---
+
+## U2 code review — free_cells performance change (D42)
+**Timestamp**: 2026-09-29T01:34:00Z
+**User Input**: "Revisão de features.py: lógica correta (golden conferido manualmente). Ajuste de desempenho (registrar como D41):
+
+1. free_cells calculado uma única vez por chamada de extract_features, fora do laço das ações, pela fórmula
+   width*height - len(obstacles) - len(me.body) - len(opp.body)
+   (válida pelos invariantes P-ENG-NOOVERLAP e \"cobra viva nunca está sobre obstáculo\"). _space recebe free_cells como parâmetro.
+2. Nova propriedade PBT: a fórmula é igual à contagem célula a célula (oráculo só no teste).
+3. Manter danger = is_fatal por enquanto. Rodar o benchmark do pior caso e registrar o número antes e depois do item 1."
+**AI Response**: "Registered as D42 (D41 already taken by the U2 CG plan decision). Added free_cell_count; _space takes free_cells; added P-FEAT-FREECELLS oracle PBT. Bench 4.11 ms -> 2.12 ms, still ALERTA vs 0.5 ms. Updated FD, benchmark.md, summary. Did not commit or tag u2-done."
+**Context**: CONSTRUCTION - U2 Code Generation Part 2. Gate: approve code or request changes.
+
+---
+
+## U2 final adjustments before u2-done
+**Timestamp**: 2026-09-29T01:44:00Z
+**User Input**: "D41 aplicada corretamente. Últimos ajustes antes do u2-done:
+
+1. Renomear free_cell_count para _free_cell_count (não faz parte da superfície pública da U2); o teste pode importar o nome privado.
+2. Confirmar que existe a propriedade PBT: _free_cell_count == contagem célula a célula em estados gerados por new_match + step.
+3. Mostrar o benchmark.md com o pior caso antes e depois da D41 e o status OK/ALERTA contra 0,5 ms.
+4. Confirmar que omit = [\"*/features.py\"] foi removido e mostrar a cobertura por ramos de todo o core/."
+**AI Response**: "Renamed to _free_cell_count in src, test and docs. Confirmed P-FEAT-FREECELLS PBT over playing_state() (new_match + step). benchmark.md shows 4.11 ms before / 2.12 ms after, ALERTA both. omit removed from pyproject; branch coverage of full core/ = 97.06%, 75 passed, ruff + mypy clean. Did not commit or tag u2-done."
+**Context**: CONSTRUCTION - U2 Code Generation Part 2. Gate: approve code or request changes.
+
+---
+
+## U2 — limit < 1 guard on reachable_cells
+**Timestamp**: 2026-09-29T02:02:00Z
+**User Input**: "queries.py e features.py revisados: corretos (D39 confirmada — len(seen) nunca excede limit).
+
+1. Adicionar em reachable_cells/flood_fill_count: limit < 1 → ValueError, com teste.
+2. Mostrar: benchmark.md (pior caso antes/depois da D41, OK/ALERTA vs 0,5 ms), a propriedade PBT de _free_cell_count vs contagem célula a célula, e o relatório de cobertura por ramos de todo o core/."
+**AI Response**: "Added ValueError for limit < 1 in reachable_cells (propagates through flood_fill_count); test_flood_fill_rejects_limit_below_one parametrized over 0 and -1 covers both entry points. Updated BR-Q4. 77 passed, branch coverage 96.72%, ruff + mypy clean. Showed benchmark, PBT property and coverage report. Did not commit or tag u2-done."
+**Context**: CONSTRUCTION - U2 Code Generation Part 2. Gate: approve code or request changes.
+
+---
+
+## U2 Code Generation — Solicitar Alterações (D43 performance)
+**Timestamp**: 2026-09-29T02:20:00Z
+**User Input**: "Solicitar Alterações. Registrar como D43: otimizar extract_features até ≤ 0,5 ms no pior caso, em passos medidos (parar quando atingir a meta):
+
+1. reachable_cells (U1): BFS interno com índices inteiros (y*width + x) e grade de bloqueio pré-calculada (lista de bool), sem criar Cell por vizinho nem chamar in_bounds por célula. Assinatura e retorno públicos inalterados. Testes de isometria D39 devem continuar passando.
+2. features: danger derivado de _blocked(state, landing, occ), sem chamar is_fatal no laço. Nova propriedade PBT: para toda ação, esse danger == is_fatal(state, id, action).
+3. Somente se ainda > 0,5 ms: flood compartilhado da D40 — quando as ocupações das direções forem iguais (nenhuma ação cai na comida), o BFS do destino ahead saturado em 200 cobre os destinos left/right presentes no conjunto visitado. Caso contrário, BFS individual.
+
+Registrar no benchmark.md o tempo após cada passo. Rodar HYPOTHESIS_PROFILE=full no final."
+**AI Response**: "Registered D43. Step 1 (_flood_indices integer BFS, blocked grid, flood_fill_count builds no Cell) -> 0.543 ms ALERTA. Step 2 (danger via _blocked + P-FEAT-DANGER PBT) -> 0.415 ms OK; step 3 skipped per stop-on-target. Added OOB-start test to cover the new guard. HYPOTHESIS_PROFILE=full: 79 passed in 4m05s, branch coverage 96.97%, ruff + mypy clean. Did not commit or tag u2-done."
+**Context**: CONSTRUCTION - U2 Code Generation Part 2. Gate: approve code or request changes.
+
+---
+
+## U2 Code Generation — approval
+**Timestamp**: 2026-09-29T02:32:00Z
+**User Input**: "Continuar para o Próximo Estágio"
+**AI Response**: "U2 approved. Committed U2 (features + D38-D43) and tagged u2-done. Excluded the pre-existing stray requirements.txt (requests/flask/pandas) from the commit. Opened U3 Functional Design Part 1 with questions in the plan file."
+**Context**: CONSTRUCTION - U2 Code Generation approved; moving to U3 Functional Design.
+
+---

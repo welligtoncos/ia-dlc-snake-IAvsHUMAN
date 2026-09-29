@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from collections import deque
-
 from snake_vs_machine.core.state import (
     Action,
     Cell,
@@ -67,6 +65,64 @@ def is_fatal(state: State, snake_id: SnakeId, action: Action) -> bool:
     return nxt in next_occupancy(state, snake_id, action)
 
 
+def _flood_indices(
+    state: State,
+    start: Cell,
+    occupancy: frozenset[Cell] | None,
+    limit: int,
+) -> list[int]:
+    """BFS over row-major indices `y * width + x` (D43).
+
+    Order of visit is irrelevant: the walk stops at `limit` reachable cells,
+    so the size is always `min(component, limit)` (D39).
+    """
+    if limit < 1:
+        raise ValueError("limit must be >= 1")
+    width = state.width
+    height = state.height
+    if not in_bounds(start, width, height):
+        return []
+    size = width * height
+    grid = [False] * size
+    for cell in state.obstacles:
+        if in_bounds(cell, width, height):
+            grid[cell.y * width + cell.x] = True
+    for cell in occupancy if occupancy is not None else body_cells(state):
+        if in_bounds(cell, width, height):
+            grid[cell.y * width + cell.x] = True
+    first = start.y * width + start.x
+    if grid[first]:
+        return []
+    grid[first] = True
+    order = [first]
+    head = 0
+    while head < len(order) and len(order) < limit:
+        idx = order[head]
+        head += 1
+        x = idx % width
+        if x > 0 and not grid[idx - 1]:
+            grid[idx - 1] = True
+            order.append(idx - 1)
+            if len(order) >= limit:
+                break
+        if x + 1 < width and not grid[idx + 1]:
+            grid[idx + 1] = True
+            order.append(idx + 1)
+            if len(order) >= limit:
+                break
+        if idx >= width and not grid[idx - width]:
+            grid[idx - width] = True
+            order.append(idx - width)
+            if len(order) >= limit:
+                break
+        if idx + width < size and not grid[idx + width]:
+            grid[idx + width] = True
+            order.append(idx + width)
+            if len(order) >= limit:
+                break
+    return order
+
+
 def reachable_cells(
     state: State,
     start: Cell,
@@ -74,28 +130,11 @@ def reachable_cells(
     limit: int = 200,
 ) -> frozenset[Cell]:
     """4-connected cells from `start`, cap `limit`. Food is walkable."""
-    blocked = set(state.obstacles)
-    if occupancy is None:
-        blocked |= set(body_cells(state))
-    else:
-        blocked |= set(occupancy)
-    if not in_bounds(start, state.width, state.height) or start in blocked:
-        return frozenset()
-    seen: set[Cell] = {start}
-    queue: deque[Cell] = deque([start])
-    while queue and len(seen) < limit:
-        cell = queue.popleft()
-        for nxt in neighbors4(cell):
-            if (
-                in_bounds(nxt, state.width, state.height)
-                and nxt not in blocked
-                and nxt not in seen
-            ):
-                seen.add(nxt)
-                queue.append(nxt)
-                if len(seen) >= limit:
-                    break
-    return frozenset(seen)
+    width = state.width
+    return frozenset(
+        Cell(idx % width, idx // width)
+        for idx in _flood_indices(state, start, occupancy, limit)
+    )
 
 
 def flood_fill_count(
@@ -104,5 +143,8 @@ def flood_fill_count(
     occupancy: frozenset[Cell] | None = None,
     limit: int = 200,
 ) -> int:
-    """Exactly min(reachable component size, limit). Order-independent (D39)."""
-    return len(reachable_cells(state, start, occupancy=occupancy, limit=limit))
+    """Exactly min(reachable component size, limit). Order-independent (D39).
+
+    Raises ValueError for limit < 1. Skips building `Cell` objects (D43).
+    """
+    return len(_flood_indices(state, start, occupancy, limit))

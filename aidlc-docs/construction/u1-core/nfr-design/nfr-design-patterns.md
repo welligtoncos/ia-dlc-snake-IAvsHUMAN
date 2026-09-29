@@ -49,6 +49,7 @@ Patterns for `core/` only. No cloud, pygame, or ML.
 
 - No `sleep`, no clock, no I/O in `step` / `new_match` / queries.
 - `flood_fill_count` returns exactly `min(reachable cells, limit)`, independent of visit order (D39).
+- BFS walks row-major integer indices against a precomputed blocked grid; `Cell` objects are built only by `reachable_cells` (D43).
 - Bench records mean `step` time and random-helper games/min to support later RNF03 (U3).
 
 ## Resilience / scale / security

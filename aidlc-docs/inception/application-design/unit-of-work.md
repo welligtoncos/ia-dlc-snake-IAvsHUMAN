@@ -32,7 +32,7 @@ pyproject.toml   # pip install -e .
 
 ## U5 — Behavior Cloning
 **Responsibilities**: `agents.tree` devolve **ação + ExplanationPayload**; collect, DAgger, modelos 3/6/8; alerta D12 100.  
-**Aceite**: acurácia ≥ 95% BC-6/8; BC-6 **e BC-8** ≥ 90% vs random; inferência < 1 ms **com máscara**; alerta D12 100.  
+**Aceite**: acurácia ≥ 95% BC-6/8; BC-6 **e BC-8** ≥ 90% vs random; inferência < 1 ms **com máscara** = `extract_features` + `predict_proba` + `safety_mask` (D40); alerta D12 100.  
 **DoD**: D30 (tag `u5-done`).  
 **NFR stages**: não (D27).
 
