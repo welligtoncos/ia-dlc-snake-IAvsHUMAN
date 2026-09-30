@@ -39,29 +39,39 @@ U1: testes D32 `(5,5)/(6,5)` e D33 (B adjacente à comida, vira, A pisa a cauda 
 | Method | In | Out | Purpose |
 | --- | --- | --- | --- |
 | `extract_features(state, snake_id)` | estado, id | `FeatureVector` | Usa `flood_fill_count` / `reachable_cells`; `space_free` / min(200, livres) |
-| `feature_names()` | — | `list[str]` | Nomes em inglês |
+| `feature_names()` | — | `tuple[str, ...]` | Nomes em inglês (D45) |
+| `FEATURE_SCHEMA_VERSION` | — | `int` | Versão do esquema; gravada pela U5 e conferida no carregamento (D38) |
+
+## agents.base
+
+| Method | In | Out | Purpose |
+| --- | --- | --- | --- |
+| `Agent.act(state, snake_id)` | estado, id | `Action` | Contrato de todos os agentes (`typing.Protocol`, D44/D45) |
+| `ExplainingAgent.decide(state, snake_id)` | estado, id | `ActResult` | Protocolo opcional; só o `TreeAgent`. `ActResult` = ação executada + `ExplanationPayload` (D45) |
 
 ## agents.human
 
 | Method | In | Out | Purpose |
 | --- | --- | --- | --- |
-| `push_absolute(key)` | tecla absoluta | — | Enfileira; cap 2 (FIFO; descarta o mais antigo se passar de 2) |
-| `act(state)` | estado | `Action` | Consome **1** comando; se vazio, `straight`; converte e ignora ré |
+| `push_absolute(direction)` | direção absoluta | — | Enfileira; cap 2 (FIFO). Buffer cheio: **ignora a tecla nova** (D45) |
+| `act(state, snake_id)` | estado, id | `Action` | Consome **1** comando; se vazio, `straight`; converte. Ré e comandos redundantes são filtrados no `push_absolute` (D44) |
 
 ## agents.tree
 
 | Method | In | Out | Purpose |
 | --- | --- | --- | --- |
-| `from_joblib(path, safety_mask)` | arquivo, flag | `TreeAgent` | Falha (erro 4) se arquivo ausente **ou** `sklearn` ≠ versão do JSON |
-| `act(state)` | estado | `ActResult` | predict; máscara via `is_fatal` + maior `predict_proba` segura; **inclui ExplanationPayload** (D30) |
-| `explain(state)` | estado | `ExplanationPayload` | Mesmos dados que `act` já carrega; U7 não recalcula |
+| `from_joblib(path, safety_mask)` | arquivo, flag | `TreeAgent` | `ModelLoadError(reason=missing\|sklearn\|numpy\|schema)` se o arquivo faltar ou as versões divergirem do JSON (D45/D50) |
+| `decide(state, snake_id)` | estado, id | `ActResult` | predict; máscara via `is_fatal` + maior `predict_proba` segura (empate: `straight`, senão stream dos agentes); `TreeExplanation` com `proba` e `path` (D50) |
+| `act(state, snake_id)` | estado, id | `Action` | `decide(...).action`; conformidade com o protocolo `Agent` |
+
+Sem `explain(state)`: a explicação chega à U7 pelo `ActResult` do `decide`, repassado no `on_tick`. Nenhum agente guarda a última explicação em estado (D45).
 
 ## services.match (entregue na U3)
 
 | Method | In | Out | Purpose |
 | --- | --- | --- | --- |
-| `tick(state, agent_a, agent_b)` | estado + 2 agentes | `State` | `act`×2 + `engine.step`; **não** dorme, **não** lê relógio |
-| `play(agent_a, agent_b, config, seed)` | agentes + config | `MatchResult` | Loop de `tick` até terminal; ritmo = o do caller |
+| `tick(state, agent_a, agent_b)` | estado + 2 agentes | `State` | `decide` se o agente o implementa, senão `act`; + `engine.step`; **não** dorme, **não** lê relógio (D45) |
+| `play(agent_a, agent_b, config, seed, sides, on_tick=None)` | agentes, config, seed, lados, hook | `MatchResult` | Loop de `tick` até terminal; ritmo = o do caller; `on_tick` recebe `(antes, ActResult A, ActResult B, depois)` (D44/D45) |
 
 ## Demais métodos
 `training.*`, `evaluation.*`, `ui.*` como no design anterior; `ui` chama `MatchService.tick` no ritmo de `tick_rate` / 60 FPS; headless chama `tick`/`play` sem espera.

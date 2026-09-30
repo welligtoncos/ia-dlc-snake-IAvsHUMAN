@@ -9,27 +9,50 @@ description = "Snake vs. Máquina — human vs explainable decision-tree AI"
 requires-python = ">=3.13"
 dependencies = [
     "numpy==2.2.6",
+    "scikit-learn==1.9.1",
+    "joblib==1.6.0",
 ]
 
 [project.optional-dependencies]
+ui = [
+    "pygame==2.6.1",
+    "PyYAML==6.0.3",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "hypothesis>=6.100",
     "ruff>=0.8",
     "mypy>=1.13",
+    "pygame==2.6.1",
+    "PyYAML==6.0.3",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"snake_vs_machine.ui" = ["fonts/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = ["-m", "not slow"]
+markers = [
+    "slow: long batteries excluded from the default run (D46 item 8)",
+]
 
 [tool.coverage.run]
 branch = true
-source = ["snake_vs_machine.core"]
+source = [
+    "snake_vs_machine.core",
+    "snake_vs_machine.agents",
+    "snake_vs_machine.services",
+    "snake_vs_machine.evaluation",
+    "snake_vs_machine.training",
+    "snake_vs_machine.ui",
+]
+omit = ["*/ui/render.py"]
 
 [tool.coverage.report]
 fail_under = 80
@@ -46,4 +69,15 @@ select = ["E", "F", "I", "UP"]
 [tool.mypy]
 python_version = "3.13"
 strict = true
-files = ["src/snake_vs_machine/core"]
+files = [
+    "src/snake_vs_machine/core",
+    "src/snake_vs_machine/agents",
+    "src/snake_vs_machine/services",
+    "src/snake_vs_machine/evaluation",
+    "src/snake_vs_machine/training",
+    "src/snake_vs_machine/ui",
+]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "joblib", "yaml"]
+ignore_missing_imports = true

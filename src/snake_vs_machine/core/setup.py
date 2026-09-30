@@ -4,8 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-import numpy as np
-
+from snake_vs_machine.core.rng import obstacle_generator
 from snake_vs_machine.core.state import (
     Cell,
     CoreConfig,
@@ -128,8 +127,7 @@ def _generate_obstacles(
     forbid = _forbidden(snake_a, snake_b, food, side_a, side_b)
     width, height = config.width, config.height
     for k in range(100):
-        seed_k = int(seed + k * 1_000_003)
-        rng = np.random.default_rng(np.random.SeedSequence([seed_k, 0]))
+        rng = obstacle_generator(seed, k)
         pairs: list[tuple[Cell, Cell]] = []
         for y in range(height):
             for x in range(width):

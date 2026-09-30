@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-import numpy as np
-
 from snake_vs_machine.core.engine import step
+from snake_vs_machine.core.rng import helper_generator
 from snake_vs_machine.core.setup import new_match
 from snake_vs_machine.core.state import Action, CoreConfig
 
 _ACTIONS = (Action.straight, Action.turn_left, Action.turn_right)
-_HELPER_STREAM = 2_000_003
 
 
 def play_random_match(seed: int, obstacle_count: int = 0) -> int:
     """Play until terminal. Actions from SeedSequence([seed, 2000003])."""
-    rng = np.random.default_rng(np.random.SeedSequence([int(seed), _HELPER_STREAM]))
+    rng = helper_generator(seed)
     state = new_match(CoreConfig(obstacle_count=obstacle_count), seed=seed)
     ticks = 0
     while state.end_reason is None:

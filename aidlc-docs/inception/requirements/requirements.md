@@ -72,6 +72,22 @@
 | D41 | CG U2: testes dos helpers de transform; commit U1 D39 antes da Etapa 1 | Code Generation U2 |
 | D42 | `free_cells` aritmético uma vez por chamada; PBT de oráculo; bench 4,11 → 2,12 ms (ainda ALERTA) | Revisão de código U2 |
 | D43 | BFS por índices inteiros; `danger` por `_blocked` + PBT contra `is_fatal`; bench 2,12 → 0,415 ms (OK); passo 3 dispensado | Revisão de código U2 |
+| D44 | U3: especialista sem A\* (BFS + ordem de decisão), RNG por tick, `HumanAgent` filtra no push, `MatchResult` + `on_tick`, pacote `services/` | Functional Design U3 |
+| D45 | `ExplainingAgent.decide` → `ActResult` repassado pelo `on_tick`; buffer cheio ignora a tecla nova; sincronização de `components.md` / `component-methods.md` | Revisão do FD U3 |
+| D46 | RNF03 por multiprocessing + ticks/s; especialista ≤ 1 ms com ALERTA e BFS único da comida; cobertura/mypy em `agents`+`services`; `TypeError` no contrato; `max_ticks` 60 no PBT; `scripts/` | NFR Requirements U3 |
+| D48 | `Pool.imap_unordered` com specs de agente; `core/rng.py` como registro único de streams; paridade sequencial/paralelo em 20 seeds; duas linhas de bench do especialista; `evaluation/scoring.py` | NFR Design U3 |
+| D49 | Cobertura e mypy incluem `evaluation`; P-EXP-MIRROR (espelho troca left/right); golden do especialista com distâncias 14/16/14 | Code Generation U3 |
+| D50 | U5: defaults gini/leaf=1; DAgger 5 com curva; `.npz` rico; `random_state` fixo; máscara straight-ou-sorteio; `TreeExplanation`+proba+path; `classes_`; pin sklearn na CG | Functional Design U5 |
+| D51 | `scikit-learn==1.9.1`, `joblib==1.6.0` (compatível com `numpy==2.2.6`) | Code Generation U5 |
+| D52 | U5 fecha com modelos reais; sonda 5% + MP do batch; DAgger três árvores vs especialista, +20 k/iter; expert vs random alterna NW/SE | Code Generation U5 |
+| D53 | U4: layout A; WASD+setas; Esc/P/N/R; espectador qualquer par; erro 4 + stderr; overlay Enter/Esc; stub RF05; 1 tick/frame; pygame pin na CG; cell_px=24 | Functional Design U4 |
+| D54 | FPS script janela real + ALERTA <55; pygame+pyyaml extra [ui] (dev inclui); mypy ui + stubs pygame; cov ui omit render.py; TTF OFL em assets/fonts/; --config; sem vsync | NFR Requirements U4 |
+| D55 | FPS 600 frames Difícil+painel + cache de texto; fonte via importlib.resources; keys por apelido; tag 6_000_003; session_seed opcional/secrets; models_dir; display fail PT+SDL | NFR Design U4 |
+| D56 | SeedSequence: zeros finais invisíveis; tags distintas + tetos; novos streams tag na 2ª posição; `ui_match_seed` 6_000_003 | Code Generation U4 |
+| D57 | `pygame==2.6.1`, `PyYAML==6.0.3` no extra `[ui]`; stubs do pygame reconhecidos pelo mypy | Code Generation U4 |
+| D58 | `ui/session.py` puro + TDD; P-UI-PAUSE/STEP sem pygame; app/screens finos; session na cobertura | Code Generation U4 |
+| D59 | U7: diagnóstico morte+críticos; ruído A+[0,1]+sem length_diff+tag 8e6+3; painel 3 last+valor; labels_pt.py; IC normal+Δ D12; tags 7e6+3/8e6+3 | Functional Design U7 |
+| D60 | U7 CG: seeds pareadas sem pairing_code; `paired_difference_ci`; ruído N=200 (N<200 indicativo); Pool Windows hang + RNF03 herdado da U3 | Code Generation U7 |
 
 Registro completo: `aidlc-docs/decisions.md`.
 

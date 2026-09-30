@@ -1,0 +1,32 @@
+{
+  "sklearn_version": "1.9.1",
+  "numpy_version": "2.2.6",
+  "feature_schema_version": 1,
+  "feature_names": [
+    "danger_ahead",
+    "danger_left",
+    "danger_right",
+    "dist_danger_ahead",
+    "dist_danger_left",
+    "dist_danger_right",
+    "space_free_ahead",
+    "space_free_left",
+    "space_free_right",
+    "food_ahead",
+    "food_left",
+    "food_right",
+    "food_behind",
+    "dist_food",
+    "opponent_closer_to_food",
+    "dist_opponent_head",
+    "head_risk_ahead",
+    "head_risk_left",
+    "head_risk_right",
+    "length_diff"
+  ],
+  "max_depth": 6,
+  "min_samples_leaf": 1,
+  "criterion": "gini",
+  "class_weight": "balanced",
+  "random_state": 0
+}

@@ -1,0 +1,9 @@
+width: 20
+height: 20
+tick_rate: 10
+cell_px: 24
+hud_width: 280
+obstacle_count: 0
+panel_key: H
+models_dir: models
+# session_seed: omit to draw secrets.randbits(31) (printed on stderr)

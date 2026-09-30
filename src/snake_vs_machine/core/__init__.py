@@ -13,6 +13,7 @@ from snake_vs_machine.core.queries import (
     next_occupancy,
     reachable_cells,
 )
+from snake_vs_machine.core.rng import agent_generator
 from snake_vs_machine.core.setup import SetupError, new_match
 from snake_vs_machine.core.state import (
     Action,
@@ -43,6 +44,7 @@ __all__ = [
     "Snake",
     "SnakeId",
     "State",
+    "agent_generator",
     "body_cells",
     "copy",
     "extract_features",

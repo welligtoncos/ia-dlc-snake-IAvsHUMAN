@@ -5,7 +5,7 @@
 **Código (D28, override do default `src/{unit}/`)**:
 
 ```
-src/snake_vs_machine/{core,agents,training,evaluation,ui}
+src/snake_vs_machine/{core,agents,services,training,evaluation,ui}   # services added by D44
 tests/   # espelha o pacote
 pyproject.toml   # pip install -e .
 ```
@@ -25,13 +25,13 @@ pyproject.toml   # pip install -e .
 **NFR stages**: sim.
 
 ## U3 — Agents + MatchService
-**Responsibilities**: `Agent.act`; random, expert, human (buffer 2); **MatchService** (`tick` sem relógio).  
+**Responsibilities**: `Agent.act(state, snake_id)` (D44); random, expert (sem A*, D44), human (buffer 2); **MatchService** em `services/match.py` (`tick` sem relógio).  
 **Aceite**: expert ≥ 95% vs random (1/0,5/0) em 500; **RNF03 ≥ 1000 partidas/min random vs. random**; throughput vs. especialista **registrado**.  
 **DoD**: D30 (tag `u3-done`).  
 **NFR stages**: sim.
 
 ## U5 — Behavior Cloning
-**Responsibilities**: `agents.tree` devolve **ação + ExplanationPayload**; collect, DAgger, modelos 3/6/8; alerta D12 100.  
+**Responsibilities**: `agents.tree` implementa `decide` devolvendo `ActResult` = **ação + ExplanationPayload** (D45); collect, DAgger, modelos 3/6/8; alerta D12 100.  
 **Aceite**: acurácia ≥ 95% BC-6/8; BC-6 **e BC-8** ≥ 90% vs random; inferência < 1 ms **com máscara** = `extract_features` + `predict_proba` + `safety_mask` (D40); alerta D12 100.  
 **DoD**: D30 (tag `u5-done`).  
 **NFR stages**: não (D27).

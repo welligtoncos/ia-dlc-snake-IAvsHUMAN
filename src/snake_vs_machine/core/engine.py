@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-import numpy as np
-
 from snake_vs_machine.core.queries import body_cells, next_occupancy
+from snake_vs_machine.core.rng import food_generator
 from snake_vs_machine.core.state import (
     Action,
     Cell,
@@ -88,7 +87,7 @@ def _respawn_food(state: State, snake_a: Snake, snake_b: Snake, tick_after: int)
     ]
     if not free:
         return None
-    rng = np.random.default_rng(np.random.SeedSequence([int(state.seed), int(tick_after)]))
+    rng = food_generator(state.seed, tick_after)
     index = int(rng.choice(len(free)))
     return free[index]
 

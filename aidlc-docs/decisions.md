@@ -315,3 +315,209 @@ Decisões da Inception. Fonte: perguntas de requisitos, esclarecimento RF03 e re
 **Resultado**: passo 1 → 0,543 ms (ALERTA); passo 2 → **0,415 ms (OK)**. Passo 3 **não implementado** — meta atingida. Cumulativo 4,11 ms → 0,415 ms.
 **Origem**: revisão do código U2 (Solicitar Alterações)  
 **Status**: Aprovada
+
+## D44 — Functional Design da U3 (agentes + MatchService)
+**Respostas**: Q1=B, Q2=B, Q3=X, Q4=X, Q5=A, Q6=X, Q7=X, Q8=C, Q9=A, Q10=A, Q11=A, Q12=A.
+**Decisão**:
+1. **Especialista sem A\***: para cada uma das três ações, distância BFS do destino até a comida (ocupação conservadora + obstáculos). Ordem de decisão:
+   (1) descartar fatais; (2) descartar risco de cabeça (destino ∈ próximas cabeças possíveis do oponente) salvo se estritamente maior; (3) descartar as que falham `flood_fill_count(destino, occ, 200) > len(body)`;
+   (4) menor distância à comida → maior flood → `straight`; (5) empate esquerda/direita: sorteio com o RNG do tick;
+   (6) fallbacks: se 2 ou 3 eliminar tudo, voltar ao conjunto anterior e escolher o maior flood; se todas fatais, `straight`.
+   Complemento (Q4): as possíveis próximas cabeças do oponente só contam no **primeiro** passo (o destino) e só quando o especialista não é estritamente maior; a BFS dos passos seguintes bloqueia apenas ocupação conservadora e obstáculos.
+2. **PBT de consistência**: rotacionar o tabuleiro (helpers da U2) não muda a ação escolhida pelo especialista, exceto nos empates esquerda/direita decididos por sorteio.
+3. **RNG dos agentes**: `SeedSequence([match_seed, 3_000_003, tick, snake_index])`; agentes são funções puras de `(state, snake_id)`, exceto o `HumanAgent` (buffer).
+4. **HumanAgent**: filtrar ré e comandos redundantes no `push_absolute`, comparando com a direção **efetiva** (último comando do buffer ou, se vazio, a direção atual).
+5. **Tempo de inferência** medido por um `TimedAgent` na camada `evaluation` (U7); `MatchService` continua sem relógio.
+6. **Novo pacote `services/`** (fora do layout da D28): depende de `core` e `agents`; consumido por `ui`, `training` e `evaluation`.
+**Demais respostas**: `act(state, snake_id)` no protocolo (Q1=B); `RandomAgent` uniforme sobre as ações não fatais, caindo para as três se todas forem fatais (Q2=B); espaço aceito por `flood > len(body)` (Q5=A); `MatchResult` mínimo + callback `on_tick` opcional (Q8=C); `sides` vem do chamador (Q9=A); aceite de 500 partidas e RNF03 como scripts + versões reduzidas no pytest (Q10=A); `tick`/`play` como funções de módulo (Q11=A); contrato como `typing.Protocol` (Q12=A).
+**Origem**: Functional Design U3  
+**Status**: Aprovada
+
+## D45 — Complementos do Functional Design da U3
+**Decisão**:
+1. **Contratos de agente**:
+   - `Agent.act(state, snake_id) -> Action` (todos os agentes).
+   - `ExplainingAgent.decide(state, snake_id) -> ActResult` (opcional; só o `TreeAgent`). `ActResult` = ação executada + `ExplanationPayload`.
+   - `MatchService.tick`: se o agente implementa `decide`, usa-o e repassa o `ActResult` pelo `on_tick`; senão usa `act`. **Nenhum agente guarda a última explicação em estado.**
+2. **`HumanAgent.push_absolute` com buffer cheio**: **IGNORAR** a tecla nova (não descartar a mais antiga), porque cada comando foi validado em relação ao anterior — descartar o mais antigo quebraria a cadeia e poderia produzir marcha à ré. Teste obrigatório: direita, depois ↑ ← ↓ rápidos → buffer `[↑, ←]`, sem marcha à ré.
+3. **Sincronizar `components.md` e `component-methods.md`**:
+   - `agents.base`: `act(state, snake_id)`.
+   - `agents.tree`: `decide(state, snake_id)`; `from_joblib` valida versão do **scikit-learn**, do **numpy** e o `FEATURE_SCHEMA_VERSION`.
+   - `services.match`: `play(agent_a, agent_b, config, seed, sides, on_tick=None)`.
+   - `core.features`: `feature_names() -> tuple[str, ...]`.
+**Consequências**: substitui a regra BR-HUM-1 original (que descartava o mais antigo, como dizia a D28); `explain(state)` sai de `agents.tree` — a explicação chega à U7 pelo `ActResult` do `decide`, nunca recalculada nem guardada.
+**Origem**: revisão do Functional Design U3  
+**Status**: Aprovada
+
+## D46 — NFR Requirements da U3
+**Respostas**: Q1=B, Q2=A (com o BFS único), Q3=A, Q4=A, Q5=B, Q6=B, Q7=X.
+**Medição que motivou as perguntas** (simulando a política da D44 sobre o código da U1, 30 partidas):
+- Aleatório ingênuo (uniforme nas três ações): 12,9 ticks/partida, 22.921 partidas/min.
+- Aleatório seguro (BR-RND-1): 433,4 ticks/partida, **812 partidas/min** — abaixo do piso de 1000 do RNF03.
+- Custo por tick: `default_rng(SeedSequence([...]))` + um `integers` = **31,3 µs por agente** (37% do tick, mais que o `engine.step`); três `is_fatal` = 21,8 µs; `engine.step` = 25,5 µs.
+
+**Decisão**:
+1. **RNF03 por multiprocessing** (Q1=B, permitido pela D17): o piso de 1000 partidas/min é exigido da medição multiprocesso. Reportar também o número single-process **e ticks/s single-process**, que não depende da duração das partidas.
+2. **Orçamento do especialista**: ≤ **1 ms** por decisão, **informativo com ALERTA** (como a D40), registrado no `benchmark.md`.
+3. **Distância à comida com UM único BFS** a partir da comida, não três a partir dos destinos. Exato (não é aproximação): `next_occupancy` só difere entre as três ações na liberação da própria cauda, e a única ação que mantém a cauda sólida é a que pisa na comida — cuja distância é 0 por definição. Logo um BFS a partir da comida, com a cauda liberada, dá a distância correta de todos os destinos.
+4. **Cobertura**: `source` passa a incluir `core`, `agents` e `services`, com o mesmo piso de **80%** por ramos (Q3=A).
+5. **mypy estrito** estendido a `agents/` e `services/` (Q4=A).
+6. **Contrato violado por agente**: `MatchService` valida que o retorno é um `Action` e levanta `TypeError` nomeando o agente e o lado (Q5=B).
+7. **PBT**: `max_ticks` pequeno (ex.: 60) nos `CoreConfig` gerados, mantendo também o gerador `playing_state()` para propriedades de estado (Q6=B).
+8. **Sorteio preguiçoso** (Q8=A): o `SeedSequence` só é construído quando um sorteio é realmente necessário. O especialista deixa de pagar os 31,3 µs (sorteia apenas em empate esquerda/direita); o `RandomAgent` continua pagando, e o piso do RNF03 vem do multiprocessing. Sem misturador próprio e sem `Generator` injetado.
+9. **Localização** (Q7=X): o aceite de 95% é um teste pytest marcado `slow` (aprovado/reprovado natural e determinístico com seeds fixas); medições de throughput e latência ficam em `scripts/` (fora do pacote), porque produzem números para o `benchmark.md`.
+**Origem**: NFR Requirements U3  
+**Status**: Aprovada
+
+## D47 — não utilizada
+Número reservado e não usado: a decisão seguinte foi pedida explicitamente como D48. Registrado para que a lacuna não pareça um documento perdido.
+
+## D48 — NFR Design da U3
+**Respostas**: Q1=A, Q2=C, Q3=X, Q4=X, Q5=C.
+**Decisão**:
+1. **Multiprocessamento**: `Pool.imap_unordered` com `chunksize` explícito e `processes = cpu_count() - 1`. O worker recebe `(spec_a, spec_b, config, seed, sides)` — specs são descrições simples (nome + parâmetros) — e constrói os agentes localmente. Agregação independente da ordem; comparações ordenam por seed.
+2. **`core/rng.py`**: registro único de todas as tags de stream (obstáculos, comida, helper da U1, agentes) e o helper genérico de `Generator` por tick. `setup`, `engine`, testes e agentes passam a importar dele. Novas streams (U5, U7) só podem ser criadas ali.
+3. **Teste rápido**: ~20 seeds em modo sequencial e em paralelo produzem `MatchResult` idênticos. O teste `slow` de 500 partidas fica single-process.
+4. **`benchmark.md` do especialista**: linha "kickoff sem obstáculos" (pior caso) e linha "média por decisão em partidas especialista vs. especialista".
+5. **`evaluation/scoring.py`**: pontuação 1/0,5/0, taxa de vitória e taxa de empates; usado pelo aceite da U3 e estendido pela U7.
+**Consequências**:
+- `MatchResult` **deixa de carregar `score_a`** (que a D44/Q8 listava): a pontuação passa a ter um único dono em `evaluation/scoring.py`. `services` não importa `evaluation`, e `MatchResult` volta a ser só fatos da partida, com `outcome` como fonte da pontuação.
+- O registro de streams é **preservador de valores**: as composições atuais (`[seed_k, 0]`, `[seed, tick_after]`, `[seed, 2_000_003]`) não mudam, só deixam de estar espalhadas. Trocar a composição mudaria os valores gerados e a reprodutibilidade histórica.
+- Construção de agentes por spec exige um registro `nome → construtor` em `agents/`, porque o worker precisa construí-los do outro lado do `spawn` do Windows.
+**Origem**: NFR Design U3  
+**Status**: Aprovada
+
+## D49 — Acréscimos ao plano de geração de código da U3
+**Contexto**: plano aprovado com três acréscimos.
+**Decisão**:
+1. **Cobertura e mypy incluem `evaluation`**: o `source` da cobertura (≥ 80% por ramos) e os `files` do mypy estrito passam a ter `snake_vs_machine.evaluation`, além de `core`, `agents` e `services`. O pacote foi criado pela D48, depois que a D46 item 4/5 já havia fixado a lista — este item fecha a lacuna.
+2. **P-EXP-MIRROR**: espelhar o tabuleiro inteiro (transformações da U2) troca `turn_left` ↔ `turn_right` na ação do especialista e mantém `straight`. Decisões com `drawn = True` são puladas. Complementa a P-EXP-ROT, que só usava rotações.
+3. **Golden do especialista conferido manualmente**: distâncias à comida 14 (frente) / 16 (esquerda) / 14 (direita), empate de flood em 200, desempate final pela preferência por `straight`. Essas distâncias entram na tabela de avaliação esperada do teste, não apenas a ação escolhida.
+**Consequências**:
+- A nota de escopo da P-EXP-ROT ("apenas rotações, espelhos fora de escopo") é substituída: o espelho passa a ter uma propriedade própria, com a troca esquerda/direita como resultado esperado em vez de invariância.
+- O piso de 80% por ramos agora vale também para `evaluation/batch.py`, cujo caminho multiprocesso é o mais difícil de cobrir; a cobertura vem do caminho sequencial e do teste de paridade da D48 item 3.
+**Origem**: Code Generation U3 (Parte 1)  
+**Status**: Aprovada
+
+## D50 — Functional Design da U5
+**Respostas**: Q1=A, Q2=B, Q3=A, Q4=X, Q5=C, Q6=C, Q7=X, Q8=A, Q9=C, Q10=A.
+**Decisão**:
+1. **Hiperparâmetros de produto**: `max_depth` ∈ {3, 6, 8}, `min_samples_leaf=1`, `criterion="gini"`, `class_weight="balanced"`. A grade experimental não altera os três arquivos. **Proibido** usar o conjunto de teste congelado para qualquer escolha de hiperparâmetro.
+2. **DAgger**: 5 iterações sobre as três profundidades. Ao fim de **cada** iteração registrar acurácia no teste congelado e taxa vs. aleatório (1/0,5/0), para ver a curva.
+3. **Dataset `.npz`**: por amostra `X`, `y`, `match_id`, `seed`, `tick`, `snake_index`, `pairing`, `dagger_iter`; metadados `FEATURE_SCHEMA_VERSION`, versão do numpy, `feature_names`.
+4. **`DecisionTreeClassifier` com `random_state` fixo**, gravado no JSON. Treinar duas vezes no mesmo dataset produz árvores idênticas (teste obrigatório). A Code Generation entrega o pipeline e modelos-fixture pequenos. *(O momento do commit dos modelos reais foi revisto pela D52: ao fechar a U5, não “antes da U4”.)*
+5. **Máscara, empate de proba** entre ações seguras: `straight` se estiver no empate; senão um sorteio no stream dos agentes (`[seed, 3_000_003, tick, snake_index]`).
+6. **`TreeExplanation`**: `proposed`, `executed`, `vetoed`, `proba` (três valores na ordem de `_ACTIONS`), `path` de `PathStep(feature_name, threshold, feature_value, went_left)` da raiz até a folha.
+7. **`predict_proba` mapeado via `classes_`**: classe ausente no treino tem probabilidade 0. Teste obrigatório com um modelo treinado sem uma das três ações.
+8. **scikit-learn**: pin exato da versão que o `pip` resolver neste runtime, **compatível com `numpy==2.2.6`**, registrado em `decisions.md` e no JSON de cada modelo.
+**Consequências**:
+- `AgentSpec("tree", {"path": "...", "safety_mask": bool})` entra no registry da U3 (Q10=A).
+- Falha de carga é `ModelLoadError` com `code="model_load"` e `reason` ∈ `{missing, sklearn, numpy, schema}` (Q8=A); U4 traduz para o erro 4 em PT.
+**Origem**: Functional Design U5  
+**Status**: Aprovada
+
+## D51 — Pin do scikit-learn (U5)
+**Decisão**: `scikit-learn==1.9.1` e `joblib==1.6.0` no `pyproject.toml` (dependências principais). Resolvido neste runtime Python 3.13.7 com `numpy==2.2.6` já instalado; `DecisionTreeClassifier` importa sem erro. O `pip` puxou `scipy==1.18.1` como dependência transitiva — não é pinada à parte. Essas duas versões entram no JSON de cada modelo.
+**Origem**: Code Generation U5 Etapa 1 (D50 item 8)  
+**Status**: Aprovada
+
+## D52 — Escopo da Code Generation da U5
+**Contexto**: plano aprovado com mudança de escopo — a U5 só fecha com os modelos reais.
+**Decisão**:
+1. **Fechamento exige o treino completo.** `train_bc.py` continua fora do pytest, mas rodar o treino e registrar os resultados é critério de fechamento: acurácia no teste congelado por profundidade (≥ 95% BC-6/8); curva da DAgger (acurácia e taxa vs. aleatório por iteração); 500 partidas vs. aleatório para BC-6 e BC-8 (≥ 90%, empates à parte); alerta D12 com 100 partidas; latência real com máscara ligada vs. 1 ms. Os três modelos reais são **commitados ao fim da U5**, não “antes da U4”.
+2. **Sonda de 5% antes do treino cheio**: correr `train_bc.py` com ~5% das amostras, medir o tempo e extrapolar no `benchmark.md`. Coleta, DAgger e baterias usam o multiprocessamento de `evaluation.batch`.
+3. **DAgger**: a cada iteração as **três** árvores (máscara off) jogam contra o especialista, **alternando lados**; o especialista rotula os estados das três; as linhas vão para **um** treino; as três são retreinadas. Cada iteração acrescenta ~**20 000** linhas (20% do dataset inicial).
+4. **Coleta especialista vs. aleatório**: o especialista **alterna NW e SE** (D25). Grava-se o lado do especialista, qualquer que seja — não se assume lado A.
+**Origem**: Code Generation U5 (Parte 1)  
+**Status**: Aprovada
+
+## D53 — Functional Design da U4
+**Respostas**: Q1=A, Q2=A, Q3=X, Q4=A, Q5=A, Q6=B, Q7=B, Q8=A, Q9=A, Q10=B.
+**Decisão**:
+1. **Layout**: tabuleiro à esquerda (células quadradas); HUD + faixa RF05 empilhados à direita.
+2. **Teclas**: setas e WASD no mesmo mapa absoluto.
+3. **Durante a partida**: Esc → menu; P pausa/retoma; na pausa, N avança um tick e as teclas de movimento são ignoradas; R reinicia com nova seed.
+4. **Espectador**: quaisquer dois de {Aleatório, Especialista, Fácil, Médio, Difícil}, inclusive iguais.
+5. **Erro 4**: tela cheia em PT; qualquer tecla volta ao menu; motivo/caminho/traceback só no stderr.
+6. **Fim**: overlay com resultado + `end_reason` + comprimentos; Enter = revanche (nova seed); Esc = menu. No espectador o texto usa o nome do agente, não "jogador/máquina".
+7. **Painel até a U7**: stub `proposta` / `executada` / `vetado`; H continua ligando/desligando.
+8. **Atraso**: no máximo um `tick` por frame; acumulador limitado a um período — sem dívida de ticks.
+9. **pygame**: pin exato na Code Generation da U4 (nova D), como o sklearn.
+10. **Janela**: `cell_px` no `config.yaml` (padrão 24); tamanho derivado; não redimensionável.
+**Origem**: Functional Design U4  
+**Status**: Aprovada
+
+## D54 — Requisitos NFR da U4
+**Respostas**: Q1=B, Q2=B, Q3=X, Q4=B, Q5=A, Q6=A, Q7=C, Q8=A.
+**Decisão**:
+1. **FPS**: script informativo em `scripts/`, com janela real (não dummy); média < 55 → **ALERTA** no `benchmark.md`; pytest nunca falha por FPS.
+2. **pygame** e **pyyaml** no extra `[ui]`; o extra `dev` inclui `[ui]`.
+3. **`ui/`** no mypy strict; verificar os stubs que acompanham o pygame 2.x; `ignore_missing_imports` só como fallback registrado.
+4. **Cobertura**: `snake_vs_machine.ui` entra no gate de 80% por ramos, com omit apenas de `render.py`.
+5. **Fonte TTF** com licença OFL commitada em `assets/fonts/`, com o arquivo de licença ao lado.
+6. **`config.yaml`** via `--config` (default: `config.yaml` no diretório atual); ausente ou inválido → defaults + aviso no stderr.
+7. **Sem vsync**; `Clock.tick(60)` é o único limitador.
+8. **Testes** (Q5=A): a maioria importa só `keys` / `config` / helpers de relógio; um smoke com `SDL_VIDEODRIVER=dummy`. O script de FPS não usa dummy.
+**Origem**: NFR Requirements U4  
+**Status**: Aprovada
+
+## D55 — Design NFR da U4
+**Respostas**: Q1=B, Q2=C, Q3=C, Q4=A, Q5=B, Q6=A.
+**Decisão**:
+1. **Script de FPS**: 600 frames, espectador Difícil vs. Difícil, painel RF05 visível. Padrão: superfícies de texto (HUD e painel) em cache, renderizadas de novo só quando o conteúdo muda.
+2. **Fonte e licença OFL** como package data em `snake_vs_machine/ui/fonts/`, lidas com `importlib.resources`; cópia em `assets/fonts/` para auditoria.
+3. **`keys.py`** com apelidos por nome; só a camada Pygame conhece os códigos `K_*`.
+4. **`ui_match_seed`** com tag **6_000_003** em `core/rng.py` (mesma forma do `collection_seed`). `session_seed` opcional: se ausente, `secrets.randbits(31)` no início da sessão, impresso no stderr.
+5. **`models_dir`** no `config.yaml` (default `"models"`), resolvido em relação ao diretório do arquivo de config.
+6. **Falha de display**: linha em português no stderr + mensagem técnica do SDL na linha seguinte; exit 1.
+**Origem**: NFR Design U4  
+**Status**: Aprovada
+
+## D56 — Invariantes do registro de streams (`core/rng.py`)
+**Contexto**: acréscimo ao plano de Code Generation da U4; a premissa de que comprimentos diferentes de `SeedSequence` separam streams é falsa.
+**Decisão**:
+1. **Caracterização**: `SeedSequence([5]).generate_state(4) == SeedSequence([5, 0]).generate_state(4)` é **True** neste numpy (zeros finais invisíveis). O docstring do módulo documenta esse fato e deixa de tratar o comprimento do vetor como isolador de streams.
+2. **Invariante**: todas as tags distintas; todo contador que ocupa a posição de uma tag tem teto documentado (`tick` / `tick_after` ≤ `max_ticks`, `match_index` < 1_000_000) e fica abaixo da menor tag (`1_000_003`). Streams **novos**: tag sempre na **segunda** posição e diferente de todas as existentes.
+3. **`ui_match_seed`**: tag `6_000_003`, forma igual a `collection_seed`; coberto pelos dois testes acima.
+**Origem**: Code Generation U4 (escopo)  
+**Status**: Aprovada
+
+## D57 — Pins pygame e PyYAML
+**Decisão**: `pygame==2.6.1` e `PyYAML==6.0.3` no extra `[ui]`; o extra `dev` repete os mesmos pins. Resolvido neste runtime Python 3.13.7; `import pygame` e `import yaml` ok. pygame 2.6.1 traz `py.typed` e stubs `.pyi` — mypy usa-os; **sem** `ignore_missing_imports` para `pygame.*`.
+**Origem**: Code Generation U4 Etapa 1 (D53 Q9 / D54 item 2)  
+**Status**: Aprovada
+
+## D58 — `ui/session.py` puro (Code Generation U4)
+**Decisão**:
+1. Nova etapa antes do `render.py`: `ui/session.py`, lógica pura sem pygame (D53 item 6). Estado: tela (`menu` / `partida` / `pausa` / `fim` / `erro 4`), placar da sessão, `match_index`, modo e políticas. Entradas: eventos já traduzidos (alias de tecla, `dt`). Saídas: novo estado + comandos (`push_absolute`, `tick_with_results`, carregar políticas, sair). TDD obrigatório (testes vermelhos primeiro). Casos: pausa ignora movimento; **N** pausado = um tick; **R** e **Enter** = nova partida com `match_index + 1` via `ui_match_seed`; **Esc** = menu; placar acumula entre revanches e zera no menu; erro 4 em qualquer tela volta ao menu com qualquer tecla.
+2. P-UI-PAUSE e P-UI-STEP testam `session.py` diretamente, sem pygame.
+3. `screens.py` e `app.py` só traduzem pygame → alias, chamam `session`, executam comandos e desenham. `session.py` entra no gate de cobertura; só `render.py` permanece omitido.
+**Origem**: Code Generation U4 (plano)  
+**Status**: Aprovada
+
+## D59 — Functional Design da U7
+**Respostas**: Q1=A, Q2=B, Q3=X, Q4=X, Q5=X, Q6=X, Q7=A, Q8=X.
+**Decisão**:
+1. **`stress_results.md`**: seção **Diagnóstico** com causas de morte por modelo (`death_cause` dos `MatchResult`) e acurácia BC-3/6/8 só em estados críticos (alguma ação fatal **ou** especialista ≠ `straight`).
+2. **Ruído**: wrapper da opção A; contínuos clipados em [0, 1]; `length_diff` sem ruído; stream tag **8_000_003**. Queda com máscara on e off (máscara lê o `State` real).
+3. **Painel**: 3 últimas condições do `path`; texto `{rótulo} = {valor:.2f} ({≤|>} {limiar:.2f})` em `ui/explain_text.py` (puro, testado).
+4. **`ui/labels_pt.py`**: dicionário sem pygame; teste `keys == feature_names()`. Relatórios da evaluation ficam em inglês.
+5. **`scoring.py`**: IC normal com variância amostral dos escores 1/0,5/0; para D12, IC da **diferença** das duas baterias. Aprovação pela estimativa pontual.
+6. **Seeds**: torneio tag **7_000_003**; ruído **8_000_003**. Scripts `torneio.py` + `estresse.py`; stub RF05 substituído no retângulo da U4.
+7. **DoD**: Metrics em aprovado/reprovado honesto (Q1=A); estresse blocking = D12 500, 40% vs expert, ruído 10%; demais linhas do PRD reduzidas ou skipped (Q2=B). **TimedAgent** em `evaluation/timing.py` (Q7=A).
+**Origem**: Functional Design U7  
+**Status**: Aprovada
+
+## D60 — Desenho experimental da Code Generation U7
+**Decisão**:
+1. **Pareado**: `tournament_seed(batch_seed, match_index)` — **sem** `pairing_code`. Forma: `SeedSequence([batch, 7_000_003, match_index])` então `integers`. Todas as baterias de uma mesma comparação compartilham a **mesma lista de seeds**. D12: BC-8 e BC-6. Ruído: limpo e ruidoso, máscara on e off. Lados alternam por índice (D25): índice par árvore = A/NW, ímpar = B/SE.
+2. **`paired_difference_ci(xs, ys)`**: média das diferenças partida a partida ± 1,96 × (desvio amostral das diferenças) / √n. D12 e ruído reportam este intervalo. `n < 2` → `None`. Aprovação continua pela estimativa pontual (D59).
+3. **Ruído**: N padrão **200** (pareado). Se o run usar N < 200, a célula no relatório é **indicativa**, não bloqueante.
+4. **Pool no Windows (problema conhecido)**:
+   - **Sintoma**: `multiprocessing.Pool.imap_unordered` pode travar (filhos spawnados, sem resultados, join não retorna).
+   - **Onde**: `evaluation.batch.run_imap` com `processes > 1`. Observado na U5 (`train_bc` collect/DAgger/joblib). O throughput U3 random vs random com 15 workers **completou** neste host (4918,8 partidas/min).
+   - **Contorno**: `--processes 1` (caminho in-process de `run_imap`).
+5. **RNF03 reavaliado**: o piso ≥ 1000 partidas/min permanece **aprovado** pela medição U3 paralela (4918,8). Single-process continua abaixo (925,1 / baseline 812). U7 **não** re-mede RNF03; scripts U7 defaultam `--processes 1` por defesa após o hang da U5, não porque o RNF03 tenha sido revogado. Uma corrida U7 em `--processes 1` **não** substitui o número U3.
+6. **Antes da Etapa 12**: mostrar as tabelas de diagnóstico N=50 (causas de morte + acurácia crítica) já medidas no FD.
+**Origem**: Code Generation U7 (ajuste do plano)  
+**Status**: Aprovada

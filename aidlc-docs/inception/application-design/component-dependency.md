@@ -21,8 +21,8 @@
 ```
 UI or headless decides WHEN
 HumanAgent.push_absolute (async keys) optional
-agent_a.act(state) --> action_a
-agent_b.act(state) --> action_b
+agent_a.act(state, A) --> action_a
+agent_b.act(state, B) --> action_b
 engine.step(state, action_a, action_b) --> state'
 ```
 

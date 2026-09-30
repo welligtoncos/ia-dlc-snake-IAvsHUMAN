@@ -4,7 +4,7 @@ Consolidado após **D28**, **D29** e **D30**. Application Design **aprovado**. U
 
 ## Style
 Python 3.11+; pacote `src/snake_vs_machine/{core,agents,training,evaluation,ui}`; `pyproject.toml`; `pip install -e .`.  
-`Agent.act(state) -> Action` (agentes base). `TreeAgent.act` devolve **ação + ExplanationPayload** (D30); U7 só traduz e renderiza. Núcleo puro.
+`Agent.act(state, snake_id) -> Action` (todos os agentes). `TreeAgent.decide(state, snake_id)` devolve `ActResult` = **ação + ExplanationPayload** (D30/D45); U7 só traduz e renderiza. Núcleo puro.
 
 ## Core split (Q1 revisada)
 - `state` — dados
